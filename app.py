@@ -4,6 +4,7 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 import shap
+import pubchempy as pcp
 
 model = joblib.load("solubility_model.joblib")
 explainer = shap.TreeExplainer(model)
@@ -42,6 +43,17 @@ FEATURE_EXPLANATIONS = {
 }
 
 
+def resolve_to_smiles(user_input):
+    try:
+        compounds = pcp.get_compounds(user_input, "name")
+        if compounds:
+            return compounds[0].connectivity_smiles, "name"
+    except Exception:
+        pass
+
+    return user_input, "smiles"
+
+
 def compute_features(smiles):
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
@@ -75,15 +87,20 @@ def plain_language_summary(prediction, contributions):
 
 
 st.title("Molecular Solubility Predictor")
-st.write("Enter a molecule's SMILES string to predict its water solubility.")
+st.write("Enter a molecule's name or SMILES string to predict its water solubility.")
 
-smiles_input = st.text_input("SMILES string", value="CC(=O)Oc1ccccc1C(=O)O")
+smiles_input = st.text_input("Molecule name or SMILES string", value="aspirin")
 
 if st.button("Predict"):
-    features = compute_features(smiles_input)
+    resolved_smiles, input_type = resolve_to_smiles(smiles_input)
+
+    if input_type == "name":
+        st.caption(f"Interpreted \"{smiles_input}\" as SMILES: {resolved_smiles}")
+
+    features = compute_features(resolved_smiles)
 
     if features is None:
-        st.error("That doesn't look like a valid SMILES string. Try again.")
+        st.error("That doesn't look like a valid molecule name or SMILES string. Try again.")
     else:
         prediction = model.predict(features)[0]
         shap_values = explainer(features)

@@ -4,3 +4,4 @@ rdkit
 joblib
 shap
 streamlit
+pubchempy
