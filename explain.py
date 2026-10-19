@@ -26,6 +26,40 @@ def compute_features(smiles):
 
 explainer = shap.TreeExplainer(model)
 
+FEATURE_EXPLANATIONS = {
+    "LogP": {
+        "name": "fat vs. water preference",
+        "high_means": "the molecule prefers fat/oil over water, making it harder to dissolve",
+        "low_means": "the molecule prefers water, making it easier to dissolve",
+    },
+    "TPSA": {
+        "name": "surface polarity",
+        "high_means": "the molecule's surface attracts water, helping it dissolve",
+        "low_means": "the molecule's surface doesn't attract water much, making it harder to dissolve",
+    },
+    "MolWt": {
+        "name": "molecular size",
+        "high_means": "the molecule is large, which tends to make it harder to dissolve",
+        "low_means": "the molecule is small, which tends to make it easier to dissolve",
+    },
+    "NumHDonors": {
+        "name": "hydrogen bond donors",
+        "high_means": "the molecule can form more bonds with water, helping it dissolve",
+        "low_means": "the molecule forms fewer bonds with water, which can reduce how well it dissolves",
+    },
+    "NumHAcceptors": {
+        "name": "hydrogen bond acceptors",
+        "high_means": "the molecule can form more bonds with water, helping it dissolve",
+        "low_means": "the molecule forms fewer bonds with water, which can reduce how well it dissolves",
+    },
+    "NumRotatableBonds": {
+        "name": "molecular flexibility",
+        "high_means": "the molecule is flexible, which can slightly affect how it dissolves",
+        "low_means": "the molecule is rigid, which can slightly affect how it dissolves",
+    },
+}
+
+
 def explain_prediction(smiles):
     features = compute_features(smiles)
     if features is None:
@@ -43,6 +77,34 @@ def explain_prediction(smiles):
     }
 
 
+def plain_language_summary(smiles, result):
+    prediction = result["prediction"]
+    contributions = result["contributions"]
+
+    if prediction > -2:
+        solubility_verdict = "fairly soluble in water"
+    elif prediction > -4:
+        solubility_verdict = "moderately soluble in water"
+    else:
+        solubility_verdict = "poorly soluble in water"
+
+    sorted_contributions = sorted(
+        contributions.items(), key=lambda x: abs(x[1]), reverse=True
+    )
+    top_feature, top_value = sorted_contributions[0]
+
+    explanation = FEATURE_EXPLANATIONS[top_feature]
+    direction = "high_means" if top_value < 0 else "low_means"
+    reason = explanation[direction]
+
+    summary = (
+        f"This molecule is predicted to be {solubility_verdict}. "
+        f"The biggest factor is its {explanation['name']}: {reason}."
+    )
+
+    return summary
+
+
 if __name__ == "__main__":
     test_molecules = {
         "Aspirin": "CC(=O)Oc1ccccc1C(=O)O",
@@ -58,3 +120,5 @@ if __name__ == "__main__":
         )
         for feature, value in sorted_contributions:
             print(f"  {feature}: {value:+.3f}")
+
+        print(f"  Summary: {plain_language_summary(smiles, result)}")
