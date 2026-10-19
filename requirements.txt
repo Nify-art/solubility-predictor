@@ -3,3 +3,4 @@ scikit-learn
 rdkit
 joblib
 shap
+streamlit
